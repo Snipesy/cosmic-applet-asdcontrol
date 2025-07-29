@@ -3,7 +3,7 @@ pub fn get_bg_value(device: &str) -> i32 {
         .arg("-s")
         .arg("-b")
         .arg(device)
-        .output()src
+        .output()
         .expect("Failed to execute command");
 
     let output_str = String::from_utf8_lossy(&output.stdout);
