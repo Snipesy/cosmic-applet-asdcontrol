@@ -19,9 +19,10 @@ pub fn check_asdcontrol_command() {
     }
 }
 
-pub fn check_get_device() -> Option<String> {
-    let device = find_device();
-    if device.is_none() {
+
+pub fn check_get_devices() -> Vec<String> {
+    let devices = find_all_devices();
+    if devices.is_empty() {
         let app = gtk4::Application::builder()
             .application_id("com.sznowicki.asdcontrol-gnome-check")
             .build();
@@ -33,32 +34,44 @@ pub fn check_get_device() -> Option<String> {
         app.run();
     }
 
-    device
+    devices
 }
 
-fn find_device() -> Option<String> {
+
+pub fn check_get_device() -> Option<String> {
+    find_all_devices().into_iter().next()
+}
+
+fn find_all_devices() -> Vec<String> {
     let mut paths = Vec::new();
     create_hiddev_paths(&mut paths, "/dev/usb".to_string());
     create_hiddev_paths(&mut paths, "/dev".to_string());
 
-    // Only check output if a path includes "hiddev"
+    let mut devices = Vec::new();
+
+    // Check all paths that include "hiddev"
     for path in paths {
         if path.to_str().map_or(false, |p| p.contains("hiddev")) {
             let path_str = path.to_str().unwrap_or("");
-            let output = std::process::Command::new("asdcontrol")
+            
+            // Test if this device responds to asdcontrol
+            if let Ok(output) = std::process::Command::new("asdcontrol")
                 .arg("-s")
                 .arg("-b")
                 .arg(path_str)
-                .output()
-                .ok()?;
-            let output_str = String::from_utf8_lossy(&output.stdout);
-            // Check if the output contains a numeric-like string
-            if output_str.trim().split_whitespace().any(|word| word.chars().all(|c| c.is_numeric())) {
-                return Some(path_str.to_string());
+                .output() 
+            {
+                let output_str = String::from_utf8_lossy(&output.stdout);
+                // Check if the output contains a numeric value (brightness level)
+                if output_str.trim().split_whitespace().any(|word| word.chars().all(|c| c.is_numeric())) {
+                    devices.push(path_str.to_string());
+                }
             }
         }
     }
-    None
+    
+    devices.sort();
+    devices
 }
 
 fn create_hiddev_paths(paths: &mut Vec<PathBuf>, base: String) {
@@ -72,7 +85,6 @@ fn create_hiddev_paths(paths: &mut Vec<PathBuf>, base: String) {
     }
 }
 
-
 fn show_error_modal(message: &str) {
     let dialog = MessageDialog::builder()
         .message_type(MessageType::Error)
@@ -83,4 +95,3 @@ fn show_error_modal(message: &str) {
     dialog.connect_response(|dialog, _| dialog.close());
     dialog.show();
 }
-
