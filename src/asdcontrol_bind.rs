@@ -3,7 +3,7 @@ pub fn get_bg_value(device: &str) -> i32 {
         .arg("-s")
         .arg("-b")
         .arg(device)
-        .output()
+        .output()src
         .expect("Failed to execute command");
 
     let output_str = String::from_utf8_lossy(&output.stdout);
@@ -30,5 +30,16 @@ pub fn set_bg_value(device: &str, value: i32) {
     // trim output_str and convert into integer
     let value = output_str.trim().parse::<i32>().unwrap_or(0);
 
-    println!("Set background value: {}", value);
+    println!("Set background value for {}: {}", device, value);
+}
+
+
+pub fn get_all_devices_with_brightness() -> Vec<(String, i32)> {
+    crate::check_envs::check_get_devices()
+        .into_iter()
+        .map(|device| {
+            let brightness = get_bg_value(&device);
+            (device, brightness)
+        })
+        .collect()
 }
