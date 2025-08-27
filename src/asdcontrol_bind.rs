@@ -32,14 +32,3 @@ pub fn set_bg_value(device: &str, value: i32) {
 
     println!("Set background value for {}: {}", device, value);
 }
-
-
-pub fn get_all_devices_with_brightness() -> Vec<(String, i32)> {
-    crate::check_envs::check_get_devices()
-        .into_iter()
-        .map(|device| {
-            let brightness = get_bg_value(&device);
-            (device, brightness)
-        })
-        .collect()
-}
