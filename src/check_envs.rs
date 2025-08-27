@@ -19,7 +19,6 @@ pub fn check_asdcontrol_command() {
     }
 }
 
-
 pub fn check_get_devices() -> Vec<String> {
     let devices = find_all_devices();
     if devices.is_empty() {
@@ -35,11 +34,6 @@ pub fn check_get_devices() -> Vec<String> {
     }
 
     devices
-}
-
-
-pub fn check_get_device() -> Option<String> {
-    find_all_devices().into_iter().next()
 }
 
 fn find_all_devices() -> Vec<String> {
