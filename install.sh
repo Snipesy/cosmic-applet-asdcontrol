@@ -12,4 +12,4 @@ StartupNotify=true
 EOF
 
 chmod +x ~/.local/share/applications/asdcontrol-gnome.desktop
-update-desktop-database ~/.local/share/applications/
+update-desktop-database ~/.local/share/applications
