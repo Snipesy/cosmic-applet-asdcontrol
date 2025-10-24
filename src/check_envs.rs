@@ -20,7 +20,7 @@ fn find_all_devices() -> Vec<String> {
 
     // Check all paths that include "hiddev"
     for path in paths {
-        if path.to_str().map_or(false, |p| p.contains("hiddev")) {
+        if path.to_str().is_some_and(|p| p.contains("hiddev")) {
             let path_str = path.to_str().unwrap_or("");
             eprintln!("[DEBUG] Checking path: {}", path_str);
 
@@ -45,7 +45,7 @@ fn create_hiddev_paths(paths: &mut Vec<PathBuf>, base: String) {
                 && path
                     .file_name()
                     .and_then(|name| name.to_str())
-                    .map_or(false, |name| name.starts_with("hiddev"))
+                    .is_some_and(|name| name.starts_with("hiddev"))
             {
                 paths.push(path);
             }

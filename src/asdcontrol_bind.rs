@@ -18,7 +18,7 @@ pub fn get_bg_value(device: &str) -> i32 {
                         "[DEBUG] Got brightness: {}% (raw: {})",
                         normalized, raw_value
                     );
-                    normalized.max(0).min(100)
+                    normalized.clamp(0, 100)
                 }
                 Err(e) => {
                     eprintln!("[DEBUG] Failed to get brightness: {}", e);
@@ -36,7 +36,7 @@ pub fn get_bg_value(device: &str) -> i32 {
 /// Set brightness value (0-100 scale)
 pub fn set_bg_value(device: &str, percentage: i32) {
     // Convert from 0-100 percentage to 400-60000 range
-    let clamped = percentage.max(0).min(100);
+    let clamped = percentage.clamp(0, 100);
     let raw_value = (clamped * BRIGHTNESS_RANGE / 100) + BRIGHTNESS_MIN;
 
     eprintln!(

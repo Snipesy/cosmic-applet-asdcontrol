@@ -64,26 +64,20 @@ const fn io(ty: u32, nr: u32) -> u32 {
 }
 
 const fn ior<T>(ty: u32, nr: u32) -> u32 {
-    ioc(IOC_READ, ty, nr, std::mem::size_of::<T>() as u32)
+    ioc(IOC_READ, ty, nr, size_of::<T>() as u32)
 }
 
 const fn iow<T>(ty: u32, nr: u32) -> u32 {
-    ioc(IOC_WRITE, ty, nr, std::mem::size_of::<T>() as u32)
+    ioc(IOC_WRITE, ty, nr, size_of::<T>() as u32)
 }
 
 const fn iowr<T>(ty: u32, nr: u32) -> u32 {
-    ioc(
-        IOC_READ | IOC_WRITE,
-        ty,
-        nr,
-        std::mem::size_of::<T>() as u32,
-    )
+    ioc(IOC_READ | IOC_WRITE, ty, nr, size_of::<T>() as u32)
 }
 
 const HIDIOCGDEVINFO: u32 = ior::<HiddevDevinfo>(b'H' as u32, 0x03);
 const HIDIOCGUSAGE: u32 = iowr::<HiddevUsageRef>(b'H' as u32, 0x0B);
 const HIDIOCSUSAGE: u32 = iow::<HiddevUsageRef>(b'H' as u32, 0x0C);
-const HIDIOCGREPORT: u32 = iowr::<HiddevReportInfo>(b'H' as u32, 0x07);
 const HIDIOCSREPORT: u32 = iow::<HiddevReportInfo>(b'H' as u32, 0x08);
 const HIDIOCINITREPORT: u32 = io(b'H' as u32, 0x05);
 const HIDIOCAPPLICATION: u32 = io(b'H' as u32, 0x02);

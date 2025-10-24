@@ -81,10 +81,8 @@ impl cosmic::Application for ASDControlApplet {
     fn update(&mut self, message: Self::Message) -> Task<cosmic::Action<Self::Message>> {
         match message {
             Message::TogglePopup => {
-                if let Some(id) = self.popup.take() {
-                    return cosmic::iced::platform_specific::shell::commands::popup::destroy_popup(
-                        id,
-                    );
+                return if let Some(id) = self.popup.take() {
+                    cosmic::iced::platform_specific::shell::commands::popup::destroy_popup(id)
                 } else {
                     let id = SurfaceId::unique();
                     self.popup = Some(id);
@@ -104,9 +102,9 @@ impl cosmic::Application for ASDControlApplet {
                         .min_height(100.0)
                         .max_height(600.0);
 
-                    return cosmic::iced::platform_specific::shell::commands::popup::get_popup(
+                    cosmic::iced::platform_specific::shell::commands::popup::get_popup(
                         popup_settings,
-                    );
+                    )
                 }
             }
 
