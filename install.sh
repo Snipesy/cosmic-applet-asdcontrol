@@ -1,15 +1,7 @@
-cat > ~/.local/share/applications/asdcontrol-gnome.desktop << 'EOF'
-[Desktop Entry]
-Name=ASDControl
-Comment=Control Apple Studio Display brightness
-Exec=/home/snipesy/.local/bin/asdcontrol-gnome
-Icon=preferences-desktop-display
-Type=Application
-Terminal=false
-Categories=System;Settings;Hardware;
-Keywords=brightness;display;monitor;apple;studio;
-StartupNotify=true
-EOF
+#!/bin/bash
 
-chmod +x ~/.local/share/applications/asdcontrol-gnome.desktop
-update-desktop-database ~/.local/share/applications
+# Copy desktop file to applications directory
+mkdir -p ~/.local/share/applications
+cp cosmic-applet-asdcontrol.desktop ~/.local/share/applications/
+
+echo "Installation complete! Add the applet through COSMIC Settings > Panel > Applets"

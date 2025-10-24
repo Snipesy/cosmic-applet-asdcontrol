@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=ASD Brightness Control
+Comment=Control Apple Studio Display brightness
+Icon=video-display-symbolic
+Exec=cosmic-applet-asdcontrol
+Terminal=false
+Categories=COSMIC;
+NoDisplay=true
+X-CosmicApplet=true
+X-CosmicHoverPopup=Auto
+X-OverflowPriority=10

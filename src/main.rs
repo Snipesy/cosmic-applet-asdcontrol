@@ -1,110 +1,239 @@
-mod check_envs;
+mod hiddev;
 mod asdcontrol_bind;
+mod check_envs;
 
-use gtk4::prelude::*;
-use gtk4::{Application, ApplicationWindow, Orientation, Scale, Label, Box as GtkBox, Separator};
-use check_envs::check_asdcontrol_command;
-#[macro_use]
-extern crate rust_i18n;
+use cosmic::app::Core;
+use cosmic::iced::{Length, Task};
+use cosmic::iced_runtime::core::window::Id as SurfaceId;
+use cosmic::widget::{self, slider};
+use cosmic::Element;
 
-i18n!("locales", fallback = "en");
+fn main() -> cosmic::iced::Result {
+    check_envs::check_asdcontrol_command();
+    cosmic::applet::run::<ASDControlApplet>(())
+}
 
-fn main() {
-    let app = Application::builder()
-        .application_id("com.sznowicki.asdcontrol-gnome")
-        .build();
+#[derive(Clone)]
+struct DisplayState {
+    device: String,
+    brightness: f32,
+    debouncing: bool,
+}
 
-    app.connect_activate(|app| {
-        let window = ApplicationWindow::builder()
-            .application(app)
-            .title("ASDControl GNOME - Multi Monitor")
-            .default_width(600)
-            .default_height(200)
-            .build();
+struct ASDControlApplet {
+    core: Core,
+    popup: Option<SurfaceId>,
+    displays: Vec<DisplayState>,
+}
 
+#[derive(Debug, Clone)]
+enum Message {
+    TogglePopup,
+    PopupClosed(SurfaceId),
+    SetBrightness(usize, f32),
+    ApplyBrightness(usize, i32),
+    NoOp,
+}
+
+impl cosmic::Application for ASDControlApplet {
+    type Executor = cosmic::executor::Default;
+    type Flags = ();
+    type Message = Message;
+    const APP_ID: &'static str = "com.sznowicki.cosmic-applet-asdcontrol";
+
+    fn core(&self) -> &Core {
+        &self.core
+    }
+
+    fn core_mut(&mut self) -> &mut Core {
+        &mut self.core
+    }
+
+    fn init(core: Core, _flags: Self::Flags) -> (Self, Task<cosmic::Action<Self::Message>>) {
         let devices = check_envs::check_get_devices();
-        
-        if devices.is_empty() {
-            // Show error if no devices found
-            let error_label = Label::new(Some("No Apple Studio Display devices found"));
-            window.set_child(Some(&error_label));
-            window.show();
-            return;
-        }
 
-        let main_container = GtkBox::builder()
-            .orientation(Orientation::Vertical)
-            .spacing(15)
-            .margin_top(20)
-            .margin_bottom(20)
-            .margin_start(20)
-            .margin_end(20)
-            .build();
+        let displays = devices
+            .into_iter()
+            .map(|device| {
+                let brightness = asdcontrol_bind::get_bg_value(&device) as f32;
+                DisplayState {
+                    device,
+                    brightness,
+                    debouncing: false,
+                }
+            })
+            .collect();
 
-        // Create controls for each device
-        for (index, device) in devices.iter().enumerate() {
-            let device_container = GtkBox::builder()
-                .orientation(Orientation::Vertical)
-                .spacing(8)
-                .build();
+        (
+            Self {
+                core,
+                popup: None,
+                displays,
+            },
+            Task::none(),
+        )
+    }
 
-            // Device label
-            let device_label = Label::builder()
-                .label(&format!("Apple Studio Display {} ({})", index + 1, device))
-                .halign(gtk4::Align::Start)
-                .build();
-            device_label.add_css_class("heading");
+    fn on_close_requested(&self, id: SurfaceId) -> Option<Message> {
+        Some(Message::PopupClosed(id))
+    }
 
-            // Get current brightness value
-            let bg_value = asdcontrol_bind::get_bg_value(device);
+    fn update(&mut self, message: Self::Message) -> Task<cosmic::Action<Self::Message>> {
+        match message {
+            Message::TogglePopup => {
+                if let Some(id) = self.popup.take() {
+                    return cosmic::iced::platform_specific::shell::commands::popup::destroy_popup(id);
+                } else {
+                    let id = SurfaceId::unique();
+                    self.popup = Some(id);
 
-            // Create slider
-            let slider = Scale::builder()
-                .orientation(Orientation::Horizontal)
-                .adjustment(&gtk4::Adjustment::new(bg_value as f64, 0.0, 100.0, 1.0, 5.0, 0.0))
-                .hexpand(true)
-                .draw_value(true)
-                .value_pos(gtk4::PositionType::Right)
-                .build();
+                    let main_window = match self.core.main_window_id() {
+                        Some(win_id) => win_id,
+                        None => return Task::none(),
+                    };
 
-            // Value label
-            let value_label = Label::builder()
-                .label(&format!("Brightness: {}%", bg_value))
-                .halign(gtk4::Align::Start)
-                .build();
+                    let mut popup_settings = self.core.applet.get_popup_settings(
+                        main_window,
+                        id,
+                        None,
+                        None,
+                        None,
+                    );
+                    popup_settings.positioner.size_limits = cosmic::iced::Limits::NONE
+                        .min_width(300.0)
+                        .max_width(400.0)
+                        .min_height(100.0)
+                        .max_height(600.0);
 
-            // Clone device string for the closure
-            let device_clone = device.clone();
-            let value_label_clone = value_label.clone();
-            
-            slider.connect_value_changed(move |s| {
-                let value = s.value().round() as i32;
-                asdcontrol_bind::set_bg_value(&device_clone, value);
-                value_label_clone.set_label(&format!("Brightness: {}%", value));
-                println!("Device {}: Set brightness to {}%", device_clone, value);
-            });
+                    return cosmic::iced::platform_specific::shell::commands::popup::get_popup(
+                        popup_settings,
+                    );
+                }
+            }
 
-            device_container.append(&device_label);
-            device_container.append(&slider);
-            device_container.append(&value_label);
+            Message::PopupClosed(id) => {
+                if self.popup == Some(id) {
+                    self.popup = None;
+                }
+            }
 
-            main_container.append(&device_container);
+            Message::SetBrightness(index, value) => {
+                if let Some(display) = self.displays.get_mut(index) {
 
-            // Add separator between devices (except for the last one)
-            if index < devices.len() - 1 {
-                let separator = Separator::builder()
-                    .orientation(Orientation::Horizontal)
-                    .margin_top(10)
-                    .margin_bottom(5)
-                    .build();
-                main_container.append(&separator);
+                    display.brightness = value;
+
+                    if !display.debouncing {
+                        display.debouncing = true;
+
+                        return Task::perform(
+                            async move {
+                                tokio::time::sleep(tokio::time::Duration::from_millis(150)).await;
+                                (index, value.round() as i32)
+                            },
+                            |(idx, val)| cosmic::Action::App(Message::ApplyBrightness(idx, val)),
+                        );
+                    }
+                }
+            }
+
+            Message::ApplyBrightness(index, value) => {
+                if let Some(display) = self.displays.get_mut(index) {
+                    let device = display.device.clone();
+                    let current_value = display.brightness.round() as i32;
+
+                    // Clear debouncing flag
+                    display.debouncing = false;
+
+                    // If the value has changed since we started debouncing, schedule a new update
+                    if current_value != value {
+                        display.debouncing = true;
+                        return Task::perform(
+                            async move {
+                                tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+                                (index, current_value)
+                            },
+                            |(idx, val)| cosmic::Action::App(Message::ApplyBrightness(idx, val)),
+                        );
+                    }
+
+                    // Apply the brightness in a background thread
+                    return Task::perform(
+                        async move {
+                            tokio::task::spawn_blocking(move || {
+                                asdcontrol_bind::set_bg_value(&device, value);
+                            })
+                            .await
+                            .ok();
+                        },
+                        |_| cosmic::Action::App(Message::NoOp),
+                    );
+                }
+            }
+
+            Message::NoOp => {
+                // Do nothing
             }
         }
 
-        window.set_child(Some(&main_container));
-        window.show();
-    });
-    
-    check_asdcontrol_command();
-    app.run();
+        Task::none()
+    }
+
+    fn view(&'_ self) -> Element<'_, Self::Message> {
+        self.core
+            .applet
+            .icon_button("video-display-symbolic")
+            .on_press_down(Message::TogglePopup)
+            .into()
+    }
+
+    fn view_window(&'_ self, id: SurfaceId) -> Element<'_, Self::Message> {
+        if self.popup != Some(id) {
+            return widget::text("").into();
+        }
+
+        let mut content = widget::column()
+            .padding(16)
+            .spacing(16);
+
+        // Header
+        content = content.push(
+            widget::text("Brightness Control")
+                .size(18)
+                .width(Length::Fill),
+        );
+
+        // Slider for each display
+        for (index, display) in self.displays.iter().enumerate() {
+            let display_col = widget::column()
+                .spacing(8)
+                .width(Length::Fill);
+
+            let label = widget::row()
+                .spacing(8)
+                .push(
+                    widget::text(format!("Display {}", index + 1))
+                        .size(14)
+                        .width(Length::FillPortion(3)),
+                )
+                .push(
+                    widget::text(format!("{}%", display.brightness.round() as i32))
+                        .size(14)
+                        .width(Length::FillPortion(1)),
+                );
+
+            let brightness_slider = slider(0.0..=100.0, display.brightness, move |value| {
+                Message::SetBrightness(index, value)
+            })
+            .width(Length::Fill);
+
+            content = content
+                .push(display_col.push(label).push(brightness_slider));
+        }
+
+        self.core.applet.popup_container(content).into()
+    }
+
+    fn style(&self) -> Option<cosmic::iced_runtime::Appearance> {
+        Some(cosmic::applet::style())
+    }
 }
