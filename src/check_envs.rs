@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use crate::hiddev::HidDevice;
+use std::path::PathBuf;
 
 pub fn check_asdcontrol_command() {
     // No longer needed - we have native HID support
@@ -41,10 +41,14 @@ fn create_hiddev_paths(paths: &mut Vec<PathBuf>, base: String) {
     if let Ok(entries) = std::fs::read_dir(base) {
         for entry in entries.filter_map(|entry| entry.ok()) {
             let path = entry.path();
-            if !path.is_dir() && path.file_name().and_then(|name| name.to_str()).map_or(false, |name| name.starts_with("hiddev")) {
+            if !path.is_dir()
+                && path
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .map_or(false, |name| name.starts_with("hiddev"))
+            {
                 paths.push(path);
             }
         }
     }
 }
-

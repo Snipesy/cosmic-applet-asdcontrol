@@ -1,6 +1,6 @@
-mod hiddev;
 mod asdcontrol_bind;
 mod check_envs;
+mod hiddev;
 
 use cosmic::app::Core;
 use cosmic::iced::{Length, Task};
@@ -82,7 +82,9 @@ impl cosmic::Application for ASDControlApplet {
         match message {
             Message::TogglePopup => {
                 if let Some(id) = self.popup.take() {
-                    return cosmic::iced::platform_specific::shell::commands::popup::destroy_popup(id);
+                    return cosmic::iced::platform_specific::shell::commands::popup::destroy_popup(
+                        id,
+                    );
                 } else {
                     let id = SurfaceId::unique();
                     self.popup = Some(id);
@@ -92,13 +94,10 @@ impl cosmic::Application for ASDControlApplet {
                         None => return Task::none(),
                     };
 
-                    let mut popup_settings = self.core.applet.get_popup_settings(
-                        main_window,
-                        id,
-                        None,
-                        None,
-                        None,
-                    );
+                    let mut popup_settings =
+                        self.core
+                            .applet
+                            .get_popup_settings(main_window, id, None, None, None);
                     popup_settings.positioner.size_limits = cosmic::iced::Limits::NONE
                         .min_width(300.0)
                         .max_width(400.0)
@@ -119,7 +118,6 @@ impl cosmic::Application for ASDControlApplet {
 
             Message::SetBrightness(index, value) => {
                 if let Some(display) = self.displays.get_mut(index) {
-
                     display.brightness = value;
 
                     if !display.debouncing {
@@ -191,9 +189,7 @@ impl cosmic::Application for ASDControlApplet {
             return widget::text("").into();
         }
 
-        let mut content = widget::column()
-            .padding(16)
-            .spacing(16);
+        let mut content = widget::column().padding(16).spacing(16);
 
         // Header
         content = content.push(
@@ -204,9 +200,7 @@ impl cosmic::Application for ASDControlApplet {
 
         // Slider for each display
         for (index, display) in self.displays.iter().enumerate() {
-            let display_col = widget::column()
-                .spacing(8)
-                .width(Length::Fill);
+            let display_col = widget::column().spacing(8).width(Length::Fill);
 
             let label = widget::row()
                 .spacing(8)
@@ -226,8 +220,7 @@ impl cosmic::Application for ASDControlApplet {
             })
             .width(Length::Fill);
 
-            content = content
-                .push(display_col.push(label).push(brightness_slider));
+            content = content.push(display_col.push(label).push(brightness_slider));
         }
 
         self.core.applet.popup_container(content).into()

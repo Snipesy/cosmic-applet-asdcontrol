@@ -72,7 +72,12 @@ const fn iow<T>(ty: u32, nr: u32) -> u32 {
 }
 
 const fn iowr<T>(ty: u32, nr: u32) -> u32 {
-    ioc(IOC_READ | IOC_WRITE, ty, nr, std::mem::size_of::<T>() as u32)
+    ioc(
+        IOC_READ | IOC_WRITE,
+        ty,
+        nr,
+        std::mem::size_of::<T>() as u32,
+    )
 }
 
 const HIDIOCGDEVINFO: u32 = ior::<HiddevDevinfo>(b'H' as u32, 0x03);
@@ -110,7 +115,12 @@ impl HidDevice {
         // Get device info
         let mut devinfo: HiddevDevinfo = unsafe { std::mem::zeroed() };
         unsafe {
-            if ioctl(fd, HIDIOCGDEVINFO, &mut devinfo as *mut _ as *mut libc::c_void) < 0 {
+            if ioctl(
+                fd,
+                HIDIOCGDEVINFO,
+                &mut devinfo as *mut _ as *mut libc::c_void,
+            ) < 0
+            {
                 return Err("Failed to get device info".to_string());
             }
         }
@@ -119,14 +129,20 @@ impl HidDevice {
         let vendor = devinfo.vendor;
         let product = devinfo.product;
 
-        eprintln!("[DEBUG] Device info - vendor: 0x{:04x}, product: 0x{:04x}", vendor, product);
+        eprintln!(
+            "[DEBUG] Device info - vendor: 0x{:04x}, product: 0x{:04x}",
+            vendor, product
+        );
 
         if vendor != APPLE_VENDOR {
             return Err(format!("Not an Apple device (vendor: 0x{:04x})", vendor));
         }
 
         if product != STUDIO_DISPLAY_27 && product != PRO_XDR_DISPLAY_32 {
-            return Err(format!("Unsupported Apple display (product: 0x{:04x})", product));
+            return Err(format!(
+                "Unsupported Apple display (product: 0x{:04x})",
+                product
+            ));
         }
 
         // Check if it's a USB monitor (application 0x80)
@@ -134,12 +150,16 @@ impl HidDevice {
         let mut is_monitor = false;
         for appl_num in 0..devinfo.num_applications {
             // HIDIOCAPPLICATION takes the application number as a value and returns the application ID
-            let application = unsafe {
-                libc::ioctl(fd, HIDIOCAPPLICATION as libc::c_ulong, appl_num)
-            };
+            let application =
+                unsafe { libc::ioctl(fd, HIDIOCAPPLICATION as libc::c_ulong, appl_num) };
 
             if application >= 0 {
-                eprintln!("[DEBUG] Application {}: 0x{:08x}, page: 0x{:02x}", appl_num, application, (application >> 16) & 0xFF);
+                eprintln!(
+                    "[DEBUG] Application {}: 0x{:08x}, page: 0x{:02x}",
+                    appl_num,
+                    application,
+                    (application >> 16) & 0xFF
+                );
                 if ((application >> 16) & 0xFF) == 0x80 {
                     is_monitor = true;
                     eprintln!("[DEBUG] Found USB Monitor application!");
@@ -190,7 +210,10 @@ impl HidDevice {
                 eprintln!("[DEBUG] HIDIOCGUSAGE failed: {} (ret={})", err, ret);
                 return Err(format!("Failed to get usage: {}", err));
             }
-            eprintln!("[DEBUG] HIDIOCGUSAGE succeeded, brightness value: {}", usage_ref.value);
+            eprintln!(
+                "[DEBUG] HIDIOCGUSAGE succeeded, brightness value: {}",
+                usage_ref.value
+            );
         }
 
         Ok(usage_ref.value)
