@@ -1,0 +1,104 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+jobs:
+  build-release:
+    name: Build Release Binary
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          cmake \
+          just \
+          libexpat1-dev \
+          libfontconfig-dev \
+          libfreetype-dev \
+          libxkbcommon-dev \
+          pkgconf
+
+    - name: Setup Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache cargo registry
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Cache cargo index
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/git
+        key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Cache cargo build
+      uses: actions/cache@v4
+      with:
+        path: target
+        key: ${{ runner.os }}-cargo-target-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Build release binary
+      run: cargo build --release --verbose
+
+    - name: Strip binary
+      run: strip target/release/cosmic-applet-asdcontrol
+
+    - name: Create release archive
+      run: |
+        mkdir -p release
+        cp target/release/cosmic-applet-asdcontrol release/
+        cp cosmic-applet-asdcontrol.desktop release/
+        cp install.sh release/
+        cp install-udev-rules.sh release/
+        cp README.md release/
+        cp CLAUDE.md release/
+        tar -czf cosmic-applet-asdcontrol-linux-x86_64.tar.gz -C release .
+
+    - name: Upload release artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: cosmic-applet-asdcontrol-linux-x86_64
+        path: cosmic-applet-asdcontrol-linux-x86_64.tar.gz
+
+    - name: Create GitHub Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v2
+      with:
+        files: cosmic-applet-asdcontrol-linux-x86_64.tar.gz
+        body: |
+          ## Installation
+
+          ```bash
+          # Extract the archive
+          tar -xzf cosmic-applet-asdcontrol-linux-x86_64.tar.gz
+          cd cosmic-applet-asdcontrol-linux-x86_64
+
+          # Install udev rules (required)
+          sudo ./install-udev-rules.sh
+
+          # Install the binary (requires ~/.cargo/bin in PATH)
+          mkdir -p ~/.cargo/bin
+          cp cosmic-applet-asdcontrol ~/.cargo/bin/
+
+          # Install desktop file
+          ./install.sh
+
+          # Log out and back in, then add the applet through COSMIC Settings
+          ```
+
+          ## What's Changed
+
+          See [README.md](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/README.md) for full documentation.
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
